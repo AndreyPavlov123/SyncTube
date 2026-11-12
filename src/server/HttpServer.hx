@@ -4,6 +4,7 @@ import Types.UploadResponse;
 import haxe.Timer;
 import haxe.io.Path;
 import js.lib.Error;
+import js.Node.process;
 import js.node.Buffer;
 import js.node.Fs.Fs;
 import js.node.Path as JsPath;
@@ -308,11 +309,19 @@ class HttpServer {
 			return;
 		}
 
+		cache.uploadStorage.reserve(name, size);
 		final stream = Fs.createWriteStream(filePath);
 		cache.add(name);
 		uploadingFilesSizes[filePath] = size;
 
 		pipeline(req, stream, err -> {
+			if (err == null) {
+				try cache.uploadStorage.complete(name, cache.getCachedFiles()) catch (error:Dynamic) {
+					process.exitCode = 1;
+					throw error;
+				}
+			}
+			cache.uploadStorage.release(name);
 			cleanUploadState();
 			if (err == null) {
 				res.status(200).json({info: "File write stream closed."});

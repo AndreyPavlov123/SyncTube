@@ -4398,10 +4398,16 @@ server_HttpServer.prototype = {
 			this.respondAndClose(req,res,413,{ info : this.cache.notEnoughSpaceErrorText, errorId : "freeSpace"});
 			return;
 		}
+		this.cache.uploadStorage.reserve(name,size);
 		var stream = js_node_Fs.createWriteStream(filePath);
 		this.cache.add(name);
 		this.uploadingFilesSizes.h[filePath] = size;
 		server_HttpServer.pipeline(req,stream,function(err) {
+			if(err == null) {
+				try { _gthis.cache.uploadStorage.complete(name,_gthis.cache.getCachedFiles()); }
+				catch(error) { process.exitCode = 1; throw error; }
+			}
+			_gthis.cache.uploadStorage.release(name);
 			var _this = _gthis.uploadingFilesSizes;
 			if(Object.prototype.hasOwnProperty.call(_this.h,filePath)) {
 				delete(_this.h[filePath]);
@@ -5057,7 +5063,7 @@ server_Main.prototype = {
 	,saveState: function() {
 		haxe_Log.trace("Saving state...",{ fileName : "src/server/Main.hx", lineNumber : 361, className : "server.Main", methodName : "saveState"});
 		var json = JSON.stringify(this.getCurrentState(),null,"\t");
-		js_node_Fs.writeFileSync(this.statePath,json);
+		require("../deploy/runtime/upload-storage.cjs").atomicWrite(this.statePath,json);
 		this.writeUsers(this.userList);
 	}
 	,getCurrentState: function() {
@@ -5068,6 +5074,7 @@ server_Main.prototype = {
 			return;
 		}
 		if(!sys_FileSystem.exists(this.statePath)) {
+			this.cache.setCachedFiles([]);
 			return;
 		}
 		haxe_Log.trace("Loading state...",{ fileName : "src/server/Main.hx", lineNumber : 385, className : "server.Main", methodName : "loadState"});
@@ -6405,6 +6412,7 @@ var server_cache_Cache = function(main,cacheDir) {
 	this.main = main;
 	this.cacheDir = cacheDir;
 	server_Utils.ensureDir(cacheDir);
+	this.uploadStorage = new (require("../deploy/runtime/upload-storage.cjs").UploadStorage)(cacheDir);
 	this.ytdlpCache = new server_cache_YtdlpCache(main,this);
 	this.youtubeCache = new server_cache_YoutubeCache(main,this,this.ytdlpCache);
 	this.rawCache = new server_cache_RawCache(main,this);
@@ -6417,9 +6425,10 @@ var server_cache_Cache = function(main,cacheDir) {
 server_cache_Cache.__name__ = "server.cache.Cache";
 server_cache_Cache.prototype = {
 	getCachedFiles: function() {
-		return this.cachedFiles;
+		return this.uploadStorage.completed(this.cachedFiles);
 	}
 	,setCachedFiles: function(names) {
+		names = this.uploadStorage.recover(names);
 		this.cachedFiles.length = 0;
 		var _g = 0;
 		while(_g < names.length) this.cachedFiles.push(names[_g++]);
@@ -6560,7 +6569,7 @@ server_cache_Cache.prototype = {
 			if(space <= this.storageLimit) {
 				break;
 			}
-			if(this.main.hasPlaylistUrl(this.getFileUrl(name))) {
+			if(this.uploadStorage.reserved(name) || this.main.hasPlaylistUrl(this.getFileUrl(name))) {
 				continue;
 			}
 			this.remove(name);
@@ -6622,6 +6631,10 @@ server_cache_Cache.prototype = {
 		var _g_i = arr.length - 1;
 		while(_g_i > -1) {
 			var name = arr[_g_i--];
+			if(this.uploadStorage.reserved(name)) {
+				total += this.uploadStorage.reservedSize(name);
+				continue;
+			}
 			var path = this.getFilePath(name);
 			if(!sys_FileSystem.exists(path)) {
 				HxOverrides.remove(this.cachedFiles,name);

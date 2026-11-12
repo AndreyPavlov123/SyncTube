@@ -360,7 +360,7 @@ class Main {
 	function saveState():Void {
 		trace("Saving state...");
 		final json = Json.stringify(getCurrentState(), "\t");
-		File.saveContent(statePath, json);
+		js.Syntax.code("require('../deploy/runtime/upload-storage.cjs').atomicWrite({0}, {1})", statePath, json);
 		writeUsers(userList);
 	}
 
@@ -381,7 +381,10 @@ class Main {
 
 	function loadState():Void {
 		if (isNoState) return;
-		if (!FileSystem.exists(statePath)) return;
+		if (!FileSystem.exists(statePath)) {
+			cache.setCachedFiles([]);
+			return;
+		}
 		trace("Loading state...");
 		final state:ServerState = Json.parse(File.getContent(statePath));
 		state.flashbacks ??= [];

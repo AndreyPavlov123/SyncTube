@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synctube
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  # Room state is in-process; the RWO volume must have only one writer.
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: synctube}
+  template:
+    metadata:
+      labels: {app: synctube}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: [{name: harbor-pull-dockerconfig}]
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: synctube
+          image: synctube
+          env:
+            - {name: HTTP_REQUEST_TIMEOUT_MS, value: "86400000"}
+            # Expiry applies even to playlist-pinned uploads; complete uploads
+            # remain available for advance scheduling within this 14-day window.
+            - {name: UPLOAD_RETENTION_SECONDS, value: "1209600"}
+          ports: [{name: http, containerPort: 4200}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi, ephemeral-storage: 64Mi}
+            limits: {cpu: "1", memory: 512Mi, ephemeral-storage: 256Mi}
+          startupProbe:
+            httpGet: {path: /, port: http}
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: {path: /, port: http}
+          livenessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 30
+          volumeMounts:
+            - {name: data, mountPath: /app/user}
+            - {name: config, mountPath: /etc/synctube, readOnly: true}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: synctube-data}
+        - name: config
+          configMap: {name: synctube-config}

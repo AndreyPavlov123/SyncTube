@@ -1,0 +1,13 @@
+{
+  "channelName": "SyncTube",
+  "cacheStorageLimitGiB": 8,
+  "totalVideoLimit": 100,
+  "userVideoLimit": 25,
+  "serverChatHistory": 50,
+  "localAdmins": false,
+  "allowProxyIps": true,
+  "enableProxy": false,
+  "enableCORS": false,
+  "requestLeaderOnPause": true,
+  "unpauseWithoutLeader": true
+}

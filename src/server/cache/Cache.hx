@@ -18,6 +18,8 @@ class Cache {
 	public final freeSpaceBlock = 10 * 1024 * 1024; // 10MB
 
 	final cachedFiles:Array<String> = [];
+	// Reserve full incoming sizes and checkpoint completed uploads before HTTP success.
+	public final uploadStorage:Dynamic;
 	var ytdlpCache:YtdlpCache;
 	var youtubeCache:YoutubeCache;
 	var rawCache:RawCache;
@@ -26,6 +28,7 @@ class Cache {
 		this.main = main;
 		this.cacheDir = cacheDir;
 		Utils.ensureDir(cacheDir);
+		uploadStorage = js.Syntax.code("new (require('../deploy/runtime/upload-storage.cjs').UploadStorage)({0})", cacheDir);
 		ytdlpCache = new YtdlpCache(main, this);
 		youtubeCache = new YoutubeCache(main, this, ytdlpCache);
 		rawCache = new RawCache(main, this);
@@ -37,10 +40,11 @@ class Cache {
 	}
 
 	public function getCachedFiles():Array<String> {
-		return cachedFiles;
+		return uploadStorage.completed(cachedFiles);
 	}
 
 	public function setCachedFiles(names:Array<String>) {
+		names = uploadStorage.recover(names);
 		cachedFiles.resize(0);
 		for (name in names) cachedFiles.push(name);
 
@@ -156,7 +160,7 @@ class Cache {
 		for (name in cachedFiles.reversed()) {
 			if (space <= storageLimit) break;
 			// do not remove cached items that are in playlist
-			if (main.hasPlaylistUrl(getFileUrl(name))) continue;
+			if (uploadStorage.reserved(name) || main.hasPlaylistUrl(getFileUrl(name))) continue;
 			remove(name);
 			space = getUsedSpace(addFileSize);
 		}
@@ -213,6 +217,10 @@ class Cache {
 	public function getUsedSpace(addFileSize:Float = 0):Float {
 		var total = addFileSize.limitMin(0);
 		for (name in cachedFiles.reversed()) {
+			if (uploadStorage.reserved(name)) {
+				total += cast uploadStorage.reservedSize(name);
+				continue;
+			}
 			final path = getFilePath(name);
 			if (!FileSystem.exists(path)) {
 				cachedFiles.remove(name);

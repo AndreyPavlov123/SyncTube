@@ -1,0 +1,7 @@
+.git
+node_modules
+**/__pycache__
+user/state.json
+user/users.json
+user/logs
+user/res/cache

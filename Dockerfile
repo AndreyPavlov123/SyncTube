@@ -1,25 +1,24 @@
-FROM haxe:4.3-alpine3.22
-
-RUN apk add nodejs npm git
-
-USER 0
-RUN addgroup -g 1000 app && adduser -u 1000 -G app -s /bin/sh -D app && mkdir /app
+# Package the application's committed JavaScript; no Haxe compiler is needed.
+FROM node:24.22.1-alpine3.23 AS package
 WORKDIR /app
-
-COPY res ./res
-COPY src ./src
-COPY user ./user
-COPY build-*.hxml ./
 COPY package*.json ./
-COPY default-config.json ./
-
-RUN chown -R app:app /app
-
-USER 1000
-RUN npm ci;
-RUN haxelib setup /app \
-    && haxelib install all --always && \
-    haxe build-all.hxml
-
-ENTRYPOINT [ "node", "build/server.js" ]
-
+RUN npm ci --omit=dev --ignore-scripts
+COPY build ./build
+COPY res ./res
+COPY user ./user
+COPY default-config.json LICENSE ./
+COPY deploy/runtime ./deploy/runtime
+COPY test/deployment ./test/deployment
+# Test-only Python stays in the build stage. All upload tests run real Node streams.
+RUN apk add --no-cache python3 && python3 -m unittest discover -s test/deployment -p 'test_*.py'
+FROM node:24.22.1-alpine3.23
+WORKDIR /app
+COPY --from=package --chown=node:node /app/build ./build
+COPY --from=package --chown=node:node /app/res ./res
+COPY --from=package --chown=node:node /app/user /opt/synctube-user
+COPY --from=package /app/default-config.json /app/LICENSE ./
+COPY --from=package /app/node_modules ./node_modules
+COPY --from=package /app/deploy/runtime ./deploy/runtime
+USER 1000:1000
+EXPOSE 4200
+ENTRYPOINT ["node", "/app/deploy/runtime/launcher.cjs"]
