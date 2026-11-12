@@ -6,7 +6,7 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY build ./build
 COPY res ./res
 COPY user ./user
-COPY default-config.json LICENSE ./
+COPY default-config.json LICENSE Dockerfile ./
 COPY deploy/runtime ./deploy/runtime
 COPY test/deployment ./test/deployment
 # Test-only Python stays in the build stage. All upload tests run real Node streams.
