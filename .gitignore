@@ -8,3 +8,7 @@
 /user/users.json
 /user/cookies.txt
 /user/res/
+
+# Local deployment-test interpreter cache
+__pycache__/
+*.py[cod]
