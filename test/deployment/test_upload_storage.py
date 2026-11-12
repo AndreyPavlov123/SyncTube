@@ -1,8 +1,7 @@
 """Exercise the pinned, packaged server with real streams and abrupt process death."""
-import hashlib,http.client,json,os,shutil,socket,subprocess,tarfile,tempfile,time,unittest,urllib.request
+import http.client,json,shutil,socket,subprocess,tempfile,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-PIN='d22d837ae76abe6df3d1dbce3eae0a52297a461b'
 class UploadStorage(unittest.TestCase):
  @classmethod
  def setUpClass(cls):

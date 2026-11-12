@@ -1,5 +1,8 @@
 # Application deployment
 
+These changes live on `werecoder`. Keep `master` as the clean upstream mirror;
+rebase `werecoder` onto upstream updates instead of mixing infra changes into it.
+
 This fork owns its Dockerfile, runtime storage code and Kubernetes base. The
 infrastructure AppCI pipeline builds the root Dockerfile for AMD64 and ARM64,
 publishes the application image, and pins both the image and deploy/k8s revision
