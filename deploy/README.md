@@ -20,7 +20,9 @@ Completed uploads are fsynced and indexed atomically before HTTP success. Active
 streams reserve their entire declared size and cannot be evicted; interruption
 releases the reservation. Recovery validates completed file identity so reused
 filenames cannot make partial transfers durable. The runtime index is independent
-of graceful room-state checkpoints. Age retention is provided by the launcher.
+of graceful room-state checkpoints. Age retention is provided by the launcher. Crash reports share the retention
+window and are capped at ten files of at most 256 KiB each; upstream ordinary
+logs already rotate separately.
 
 Configuration is mounted at /etc/synctube/config.json and persistent data at
 /app/user. HTTP_REQUEST_TIMEOUT_MS and UPLOAD_RETENTION_SECONDS must be set by
